@@ -1,29 +1,24 @@
-#!/usr/bin/env python3
-"""Copy the entry image to the harness output directory.
+"""Write this entry's image where the harness expects it.
 
-Validates that entry.png is a real PNG (magic bytes) before copying, so a
-corrupt or missing image fails loudly instead of submitting bad bytes.
+Reads entry.png next to this file, checks the PNG signature, and places a
+copy at $MAKEFUN_OUTPUT_DIR/entry.png. Exits nonzero on a bad signature so a
+damaged image never reaches the judge.
 """
-import os
-import shutil
-import sys
+from pathlib import Path
+import os, sys
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+SIGNATURE = bytes([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
 
 
-def main():
-    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
-    src = os.path.join(HERE, "entry.png")
-    dst = os.path.join(out_dir, "entry.png")
-    with open(src, "rb") as f:
-        head = f.read(len(PNG_MAGIC))
-    if head != PNG_MAGIC:
-        print("entry.png is not a valid PNG", file=sys.stderr)
-        sys.exit(1)
-    os.makedirs(out_dir, exist_ok=True)
-    shutil.copyfile(src, dst)
+def run():
+    source = Path(__file__).resolve().parent / "entry.png"
+    target_dir = Path(os.environ.get("MAKEFUN_OUTPUT_DIR") or "/output")
+    data = source.read_bytes()
+    if data[:8] != SIGNATURE:
+        sys.stderr.write("entry.png: bad PNG signature\n")
+        raise SystemExit(1)
+    target_dir.mkdir(parents=True, exist_ok=True)
+    (target_dir / "entry.png").write_bytes(data)
 
 
-if __name__ == "__main__":
-    main()
+run()
